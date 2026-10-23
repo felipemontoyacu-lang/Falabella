@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Falabella · Guía en tienda</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- Generador de códigos QR (solo se usa en la página #qr) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;700;800&display=swap" rel="stylesheet">
+<script>
+  // Colores y fuente de la identidad Falabella para Tailwind
+  tailwind.config = { theme: { extend: {
+    colors: { fala: '#60A630', falad: '#4A8523', falal: '#EEF6E6' },
+    fontFamily: { sans: ['Figtree', 'system-ui', 'sans-serif'] } } } };
+</script>
+<style>
+  .qr { background:#334155; padding:4px 10px; border-radius:999px; }
+  .qr:hover { background:#60A630; }
+  .chip { border:1px solid #cbd5e1; background:#fff; padding:6px 14px; border-radius:999px; font-size:.85rem; font-weight:600; }
+  .chip.on, .chip:hover { background:#60A630; border-color:#60A630; color:#fff; }
+  .tipbtn { width:18px; height:18px; border-radius:50%; background:#60A630; color:#fff; font:700 11px/18px Figtree,sans-serif; font-style:italic; flex:none; }
+  .pill { background:#60A630; color:#fff; font-size:.7rem; font-weight:700; padding:2px 8px; border-radius:999px; display:inline-block; margin-top:4px; }
+  details > summary::-webkit-details-marker { display:none; }
+  :focus-visible { outline:3px solid #60A630; outline-offset:2px; }
+  @media print { .noprint { display:none !important; } }
+  @media (prefers-reduced-motion: reduce) { * { transition:none !important; animation:none !important; } }
+</style>
+</head>
+<body class="bg-[#F4F6F2] text-slate-800 font-sans">
+ 
+<!-- SIMULADOR DE QR (solo para la presentación; los QR reales están en la página "Ver códigos QR") -->
+<div class="bg-slate-900 text-white text-xs noprint">
+  <div class="max-w-6xl mx-auto px-4 py-2 flex flex-wrap items-center gap-2">
+    <span class="opacity-70">Simulador de QR:</span>
+    <button class="qr" onclick="scanQR('entrada')">📷 QR de Entrada</button>
+    <button class="qr" onclick="scanQR('lavadoras')">📷 QR de Lavadoras</button>
+    <button class="qr" onclick="scanQR('audifonos')">📷 QR de Audífonos</button>
+    <button class="qr ml-auto" onclick="go('qr')">🧾 Ver códigos QR reales</button>
+  </div>
+</div>
+ 
+<header class="bg-white border-b sticky top-0 z-30 noprint">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex items-baseline gap-3">
+    <button onclick="go('entrada')" class="text-3xl font-extrabold text-fala tracking-tight">falabella</button>
+    <span class="text-sm text-slate-500">Guía en tienda</span>
+  </div>
+</header>
+ 
+<main class="max-w-6xl mx-auto px-4 pb-44">
+  <!-- VISTA 1: INICIO (QR de entrada) -->
+  <section id="home">
+    <div class="py-8">
+      <h1 class="text-3xl md:text-4xl font-extrabold">¿Qué estás buscando hoy?</h1>
+      <p class="text-lg md:text-xl font-bold text-falad mt-1">Tú eres quien elige. Tu elección es lo que importa.</p>
+      <div class="mt-4 flex gap-2 max-w-xl">
+        <input id="q" type="search" placeholder="Lavadoras, neveras, audífonos, televisores…" class="flex-1 border border-slate-300 rounded-full px-5 py-3 bg-white" onkeydown="if(event.key==='Enter')search($('q').value)">
+        <button onclick="search($('q').value)" class="bg-fala hover:bg-falad text-white font-bold px-6 rounded-full">Buscar</button>
+      </div>
+    </div>
+    <h2 class="text-xl font-extrabold mb-3">Explora por línea</h2>
+    <div id="homeLines" class="grid gap-3 md:grid-cols-2 items-start"></div>
+    <h2 class="text-xl font-extrabold mt-8 mb-3">⭐ Productos Estrella de la tienda</h2>
+    <div id="homeStars" class="grid gap-4 md:grid-cols-4"></div>
+    <div id="homeMsg"></div>
+  </section>
+ 
+  <!-- VISTA 2: LÍNEA, CATEGORÍA, QR O BÚSQUEDA SIN RESULTADOS -->
+  <section id="results" class="hidden"></section>
+ 
+  <p class="text-xs text-slate-400 mt-10 noprint">Prototipo académico. Productos, precios y ubicaciones son datos de ejemplo.</p>
+</main>
+ 
+<!-- TOOLTIP "(i)": ventana pequeña que explica un término técnico -->
+<div id="tip" class="hidden fixed inset-x-4 bottom-24 mx-auto max-w-sm bg-white rounded-2xl shadow-2xl border-2 border-fala p-4 z-[60]">
+  <div class="flex justify-between items-start gap-3">
+    <h4 id="tipT" class="font-extrabold text-falad"></h4>
+    <button onclick="$('tip').classList.add('hidden')" aria-label="Cerrar" class="text-slate-400 text-xl leading-none">×</button>
+  </div>
+  <p id="tipD" class="text-sm mt-1"></p>
+</div>
+ 
+<!-- CHATBOT FLOTANTE: el personaje de la marca es el botón -->
+<button id="chatBtn" onclick="toggleChat()" aria-label="Hablar con el asistente de Falabella" class="noprint fixed bottom-2 right-3 z-40 flex flex-col items-end">
+  <span class="bg-white border-2 border-fala text-falad text-xs font-bold rounded-2xl px-3 py-1.5 shadow mb-1">¿Te ayudo a elegir?</span>
+  <img src="data:image/webp;base64,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" alt="Asistente Falabella" class="h-32 w-auto drop-shadow-xl">
+</button>
+<div id="chat" class="noprint hidden fixed bottom-4 right-4 w-[calc(100vw-2rem)] sm:w-96 h-[70vh] max-h-[560px] bg-white rounded-2xl shadow-2xl border flex-col z-50">
+  <div class="bg-fala text-white rounded-t-2xl px-4 py-3 flex items-center gap-3">
+    <img id="faceH" alt="" class="w-11 h-11 rounded-full object-cover bg-falal border-2 border-white">
+    <div class="flex-1"><b>Asistente Falabella</b><br><button id="mode" onclick="setKey()" class="text-xs opacity-90 underline"></button></div>
+    <button onclick="toggleChat()" aria-label="Minimizar" class="text-2xl leading-none">–</button>
+  </div>
+  <div id="msgs" class="flex-1 overflow-y-auto p-3 space-y-2 text-sm"></div>
+  <div class="px-3 pb-1 flex flex-wrap gap-1" id="sugg"></div>
+  <div class="p-3 border-t flex gap-2">
+    <input id="chatIn" class="flex-1 border rounded-full px-4 py-2 text-sm" placeholder="Escribe tu pregunta…" onkeydown="if(event.key==='Enter')sendChat()">
+    <button onclick="sendChat()" class="bg-fala text-white rounded-full px-4 font-bold">Enviar</button>
+  </div>
+</div>
+ 
+<script>
+/* ============ 0. CONFIGURACIÓN ============ */
+// Para activar la IA en línea pega aquí tu API key (o tócala en el chat). Solo para demo:
+// en un proyecto real la clave va en un servidor, nunca en el navegador.
+const CONFIG = { API_KEY: '', MODEL: 'claude-sonnet-5-5' };
+const FACE = 'data:image/webp;base64,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'; // cara del personaje (avatar del chat)
+ 
+/* ============ 1. MENSAJES PARA CONECTAR CON EL CLIENTE ============ */
+// Edita aquí los textos. Los de "impact" hablan de las acciones sociales de la marca:
+// verifica cada dato con fuentes oficiales de Falabella antes de la entrega final.
+const MSG = {
+  choice: ['Tú eres quien elige. Tu elección es lo que importa.',
+           'Aquí nadie decide por ti: mira, compara y escoge lo que de verdad le sirve a tu casa.',
+           'Tómate tu tiempo. La mejor compra es la que tú sientes bien hecha.'],
+  impact: ['Cuando eliges Falabella también acompañas a la educación: con el programa Haciendo Escuela, la marca apoya escuelas públicas de la región, incluida Colombia.',
+           'Detrás de cada compra hay personas: voluntarios de Falabella acompañan a las escuelas del programa Haciendo Escuela.']
+};
+// kind 'choice' = frase grande centrada · kind 'impact' = recuadro con corazón
+const msgBox = (kind, i=0) => kind==='choice'
+  ? `<p class="my-8 text-center text-xl md:text-2xl font-extrabold text-falad">“${MSG.choice[i]}”</p>`
+  : `<div class="my-8 flex gap-3 items-start bg-falal border-l-4 border-fala rounded-r-xl p-4"><span class="text-2xl">💚</span><p class="text-sm">${MSG.impact[i]}</p></div>`;
+ 
+/* ============ 2. DATOS: LÍNEAS Y CATEGORÍAS ============ */
+// Cada categoría: 'id|Nombre|ícono|palabras clave del buscador'. El id es también la ruta del QR (#id).
+const LINES = [
+  { id:'linea-blanca', name:'Línea blanca', icon:'🧊', desc:'Grandes electrodomésticos y cocina', groups:[
+    ['Refrigeración', ['neveras|Neveras y frigoríficos|🧊|nevera,frigorifico,refrigerador,nevecon','congeladores|Congeladores|❄️|congelador','cavas|Cavas de vino|🍷|cava,vino']],
+    ['Cocción', ['cocinas|Cocinas y estufas|🍳|cocina,estufa','hornos|Hornos|🔥|horno','microondas|Microondas|📡|microondas','campanas|Campanas extractoras|💨|campana,extractora']],
+    ['Lavado y limpieza', ['lavadoras|Lavadoras|🫧|lavadora,lavar,ropa','secadoras|Secadoras|🌬️|secadora,secar','lavavajillas|Lavavajillas|🍽️|lavavajillas,platos']],
+    ['Climatización', ['aires|Aires acondicionados|🌡️|aire,acondicionado','calefaccion|Calefacción|♨️|calefaccion,calefactor']] ] },
+  { id:'pequeno-electrodomestico', name:'Pequeño electrodoméstico', icon:'🍳', desc:'Cocina, cuidado personal y hogar', groups:[
+    ['Preparación de alimentos', ['licuadoras|Licuadoras|🥤|licuadora','batidoras|Batidoras|🧁|batidora','cafeteras|Cafeteras|☕|cafetera,cafe','tostadoras|Tostadoras|🍞|tostadora','exprimidores|Exprimidores|🍊|exprimidor','freidoras|Freidoras|🍟|freidora','robots-cocina|Robots de cocina|🤖|robot de cocina']],
+    ['Cuidado personal', ['secadores|Secadores de pelo|💇|secador,pelo','planchas-cabello|Planchas de cabello|✨|plancha de cabello,alisador','afeitadoras|Afeitadoras|🪒|afeitadora']],
+    ['Mantenimiento del hogar', ['planchas-ropa|Planchas de ropa|👕|plancha de ropa','aspiradoras|Aspiradoras|🧹|aspiradora,robot aspirador']] ] },
+  { id:'linea-marron', name:'Línea marrón', icon:'📺', desc:'Electrónica y entretenimiento', groups:[
+    ['Imagen y cine', ['televisores|Televisores|📺|televisor,tv,television,pantalla','cine|Cine en casa|🎬|cine en casa,home cinema']],
+    ['Audio', ['parlantes|Equipos de sonido y parlantes|🔊|parlante,altavoz,sonido,bocina','reproductores|Reproductores|📻|reproductor','audifonos|Audífonos|🎧|audifono,auricular,headphone']],
+    ['Juegos', ['consolas|Consolas de videojuegos|🎮|consola,videojuego,playstation,xbox']] ] },
+  { id:'linea-gris', name:'Línea gris', icon:'💻', desc:'Informática y tecnología', groups:[
+    ['Computación', ['computadores|Computadores de escritorio|🖥️|computador,escritorio','portatiles|Portátiles|💻|portatil,laptop','tabletas|Tabletas|📱|tableta,tablet']],
+    ['Celulares y oficina', ['celulares|Teléfonos móviles|📲|celular,telefono,movil','impresoras|Impresoras y escáneres|🖨️|impresora,escaner']] ] }
+];
+ 
+// Datos específicos de las categorías que ya tienen productos: qué filas comparar, premios y filtros rápidos.
+const LEAF = {
+  lavadoras: {
+    rows:[ { k:'kg',       label:'Ropa que le cabe',     tip:'kg',       fmt:v=>v+' kg' },
+           { k:'rpm',      label:'Fuerza de exprimido',  tip:'rpm',      fmt:v=>v+' RPM' },
+           { k:'inverter', label:'Motor que ahorra luz', tip:'inverter', fmt:v=>v?'Sí (Inverter)':'No' },
+           { k:'carga',    label:'Cómo se carga',        tip:'carga',    fmt:v=>v } ],
+    awards:[ { label:'💰 El mejor en precio', k:'price', best:'min' },
+             { label:'💪 El más potente',     k:'rpm',   best:'max' },
+             { label:'🧺 La de más capacidad',k:'kg',    best:'max' } ],
+    filters:[ { label:'Todas', fn:()=>true }, { label:'Hasta $1.500.000', fn:p=>p.price<=1500000 }, { label:'Ahorran luz', fn:p=>p.s.inverter } ] },
+  audifonos: {
+    rows:[ { k:'bat',  label:'Cuánto duran cargados', tip:'bat',  fmt:v=>v+' horas' },
+           { k:'anc',  label:'Silencian el ruido',    tip:'anc',  fmt:v=>v>=35?'Muy bien':v>0?'Bien':'No' },
+           { k:'ipx',  label:'Resisten agua y sudor', tip:'ipx',  fmt:v=>v?'IPX'+v:'No' },
+           { k:'tipo', label:'Cómo se usan',          tip:'tipo', fmt:v=>v } ],
+    awards:[ { label:'💰 El mejor en precio',   k:'price', best:'min' },
+             { label:'🔋 La batería más larga', k:'bat',   best:'max' },
+             { label:'🤫 El que más silencia',  k:'anc',   best:'max' } ],
+    filters:[ { label:'Todos', fn:()=>true }, { label:'Hasta $300.000', fn:p=>p.price<=300000 }, { label:'Cancelan ruido', fn:p=>p.s.anc>0 } ] }
+};
+ 
+// Se arma CATS (todas las categorías) a partir de LINES. Las que no tienen datos propios usan valores base.
+const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim(); // sin tildes ni mayúsculas
+const CATS = {};
+LINES.forEach(L => { L.groups = L.groups.map(([gname, items]) => ({ name:gname, ids: items.map(s => {
+  const [id,name,icon,kw] = s.split('|');
+  CATS[id] = { id, name, icon, line:L.id, keys:kw.split(',').map(norm), rows:[],
+    awards:[{ label:'💰 El mejor en precio', k:'price', best:'min' }], filters:[{ label:'Todos', fn:()=>true }], ...(LEAF[id]||{}) };
+  return id; }) })); });
+ 
+// Glosario del "traductor técnico": cada término técnico se explica en lenguaje sencillo.
+const TIPS = {
+  inverter: { t:'Inverter', alias:['inverter'], d:'Es un motor inteligente que ajusta su fuerza según la carga. Gasta mucha menos luz, casi no hace ruido y dura más años.' },
+  rpm:      { t:'RPM (fuerza de exprimido)', alias:['rpm','centrifug'], d:'Qué tan rápido gira para sacarle el agua a la ropa. Más RPM = la ropa sale más seca y se seca más rápido al tenderla.' },
+  kg:       { t:'Kilos de capacidad', alias:['capacidad'], d:'Cuánta ropa cabe en cada lavada. Guía: 8 kg para 1–2 personas, 12–13 kg para 3–4 y 15 kg o más para familias grandes.' },
+  carga:    { t:'Tipo de carga', alias:['carga'], d:'Frontal: la ropa entra por una puerta al frente, gasta menos agua. Superior: se abre por arriba, es más cómoda y no hay que agacharse tanto.' },
+  bat:      { t:'Batería', alias:['bateria'], d:'Horas que puedes escuchar música sin cargarlos. Más horas = menos veces enchufados.' },
+  anc:      { t:'Cancela ruido (ANC)', alias:['anc','cancel'], d:'Los audífonos “apagan” el ruido de afuera (bus, calle, oficina) para que oigas tu música sin subir el volumen.' },
+  ipx:      { t:'IPX (resistencia al agua)', alias:['ipx'], d:'Qué tanto aguantan agua y sudor. IPX4 sirve para ejercicio y lluvia ligera. Más número = más protección.' },
+  tipo:     { t:'Tipo de audífono', alias:['in-ear','over-ear'], d:'In-ear: pequeños, van dentro del oído y caben en el bolsillo. Over-ear: cubren toda la oreja, son más cómodos por horas y suenan más “llenos”.' }
+};
+ 
+// Productos. feat:1 = los 6 de la comparación (3 estrella + 3 normales, siempre en tienda física).
+// Los demás son el catálogo completo. ch: 't' = tienda física · 'v' = solo virtual · 'tv' = ambos.
+const P = (id,cat,name,brand,price,o,s) => ({ id,cat,name,brand,price, ch:'t', ...o, s });
+const PRODUCTS = [
+  P('L1','lavadoras','Lavadora Samsung 19 kg','Samsung',2399900,{feat:1,star:1,pop:90,why:'En promoción −17%',old:2899900,aisle:'Pasillo 4',plain:'Para familias grandes: lava mucha ropa de una vez y gasta poca luz.'},{kg:19,rpm:1200,inverter:true,carga:'Superior'}),
+  P('L2','lavadoras','Lavadora LG 13 kg','LG',1899900,{feat:1,star:1,pop:100,why:'La más vendida',aisle:'Pasillo 4',plain:'La más equilibrada: seca bien la ropa y casi no se oye.'},{kg:13,rpm:1400,inverter:true,carga:'Frontal'}),
+  P('L3','lavadoras','Lavadora Haceb 8 kg','Haceb',1099900,{feat:1,star:1,pop:80,why:'En promoción −15%',old:1299900,aisle:'Pasillo 3',plain:'Pequeña y económica: cabe en apartamentos y rinde para 1–2 personas.'},{kg:8,rpm:900,inverter:false,carga:'Superior'}),
+  P('L4','lavadoras','Lavadora Whirlpool 15 kg','Whirlpool',1699900,{feat:1,aisle:'Pasillo 4',plain:'Mucha capacidad a buen precio, para familias medianas.'},{kg:15,rpm:800,inverter:false,carga:'Superior'}),
+  P('L5','lavadoras','Lavadora Challenger 11 kg','Challenger',1249900,{feat:1,aisle:'Pasillo 3',plain:'Una opción sencilla para el día a día.'},{kg:11,rpm:1000,inverter:false,carga:'Superior'}),
+  P('L6','lavadoras','Lavadora Electrolux 12 kg','Electrolux',2199900,{feat:1,aisle:'Pasillo 4',plain:'La que más exprime: la ropa sale casi seca.'},{kg:12,rpm:1500,inverter:true,carga:'Frontal'}),
+  P('L7','lavadoras','Lavadora Mabe 10 kg','Mabe',1399900,{aisle:'Pasillo 3',plain:'Práctica y fácil de usar.'},{kg:10,rpm:850,inverter:false,carga:'Superior'}),
+  P('L8','lavadoras','Lavadora Samsung 9 kg','Samsung',1599900,{aisle:'Pasillo 4',plain:'Compacta, con motor que ahorra luz.'},{kg:9,rpm:1200,inverter:true,carga:'Frontal'}),
+  P('L9','lavadoras','Lavadora LG 22 kg','LG',3099900,{ch:'v',plain:'Para familias muy grandes. Te la llevamos a casa.'},{kg:22,rpm:1100,inverter:true,carga:'Superior'}),
+  P('L10','lavadoras','Lavadora Kalley 7 kg','Kalley',799900,{ch:'v',plain:'La más económica, ideal para espacios pequeños.'},{kg:7,rpm:700,inverter:false,carga:'Superior'}),
+  P('A1','audifonos','Audífonos JBL Tune 770NC','JBL',329900,{feat:1,star:1,pop:85,why:'En promoción −17%',old:399900,aisle:'Pasillo 9',plain:'Cómodos para todo el día y con batería para varios días.'},{bat:44,anc:30,ipx:0,tipo:'Over-ear (sobre la oreja)'}),
+  P('A2','audifonos','Samsung Galaxy Buds FE','Samsung',279900,{feat:1,star:1,pop:95,why:'Los más vendidos',aisle:'Pasillo 9',plain:'Pequeños y resistentes al sudor: perfectos para entrenar.'},{bat:30,anc:25,ipx:2,tipo:'In-ear (dentro del oído)'}),
+  P('A3','audifonos','Sony WH-CH720N','Sony',549900,{feat:1,star:1,pop:88,why:'En promoción −15%',old:649900,aisle:'Pasillo 9',plain:'Muy livianos y con muy buen silencio para viajar o estudiar.'},{bat:35,anc:35,ipx:0,tipo:'Over-ear (sobre la oreja)'}),
+  P('A4','audifonos','Xiaomi Redmi Buds 5','Xiaomi',129900,{feat:1,aisle:'Pasillo 8',plain:'Buen sonido y silencio a precio bajo.'},{bat:40,anc:20,ipx:4,tipo:'In-ear (dentro del oído)'}),
+  P('A5','audifonos','Philips TAT1138','Philips',89900,{feat:1,aisle:'Pasillo 8',plain:'Lo básico para escuchar música sin gastar mucho.'},{bat:24,anc:0,ipx:4,tipo:'In-ear (dentro del oído)'}),
+  P('A6','audifonos','Soundcore Q30','Anker',249900,{feat:1,aisle:'Pasillo 9',plain:'La batería más larga y el mejor silencio de su rango.'},{bat:50,anc:40,ipx:0,tipo:'Over-ear (sobre la oreja)'}),
+  P('A7','audifonos','Sony WF-C510','Sony',239900,{aisle:'Pasillo 8',plain:'Diminutos y livianos para el día a día.'},{bat:22,anc:0,ipx:4,tipo:'In-ear (dentro del oído)'}),
+  P('A8','audifonos','JBL Wave Beam','JBL',199900,{aisle:'Pasillo 8',plain:'Sonido claro y resistentes al agua.'},{bat:32,anc:0,ipx:4,tipo:'In-ear (dentro del oído)'}),
+  P('A9','audifonos','Sony WH-1000XM5','Sony',1299900,{ch:'v',plain:'Los que mejor silencian el ruido. Envío a domicilio.'},{bat:30,anc:40,ipx:0,tipo:'Over-ear (sobre la oreja)'}),
+  P('A10','audifonos','Edifier W820NB','Edifier',219900,{ch:'v',plain:'Mucha batería y silencio a precio medio.'},{bat:49,anc:38,ipx:0,tipo:'Over-ear (sobre la oreja)'})
+];
+ 
+/* ============ 3. UTILIDADES ============ */
+const $ = id => document.getElementById(id);
+const money = n => new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}).format(n);
+const tipBtn = key => `<button class="tipbtn" data-tip="${key}" aria-label="¿Qué significa?">i</button>`;
+const specText = (row,p) => row.fmt(p.s[row.k]);
+// Dónde se consigue el producto (tienda física o virtual)
+const chLabel = p => p.ch==='v' ? '💻 Solo en línea' : p.ch==='tv' ? `🏬 ${p.aisle} + 💻 en línea` : `🏬 En tienda · ${p.aisle}`;
+// Estado: categoría abierta, productos destacados, catálogo extra, filtro activo y aviso de QR
+let state = { cat:null, all:[], extra:[], filter:0, banner:'' };
+const fnOf = () => CATS[state.cat].filters[state.filter].fn;
+const visible = () => state.all.filter(fnOf());
+const visibleExtra = () => state.extra.filter(fnOf());
+ 
+/* ============ 4. TARJETAS ============ */
+const specLines = (p,n) => CATS[p.cat].rows.slice(0,n).map(r =>
+  `<li class="flex items-center gap-1.5"><span class="text-slate-500">${r.label}:</span><b>${specText(r,p)}</b>${tipBtn(r.tip)}</li>`).join('');
+ 
+// Tarjeta grande y llamativa para Productos Estrella. big = la principal.
+function starCard(p, big){
+  return `<article class="${big?'md:col-span-2 md:row-span-2':''} bg-white rounded-2xl overflow-hidden shadow-sm border border-lime-200 flex flex-col">
+    <div class="relative text-center bg-gradient-to-br from-falal to-lime-200 ${big?'py-14 text-8xl':'py-6 text-5xl'}">${CATS[p.cat].icon}
+      <span class="absolute top-3 left-3 bg-fala text-white text-xs font-bold px-3 py-1 rounded-full">⭐ ${p.why}</span></div>
+    <div class="p-4 flex-1 flex flex-col gap-3">
+      <div><p class="text-xs text-slate-500">${p.brand}</p><h3 class="font-extrabold leading-tight ${big?'text-2xl':'text-base'}">${p.name}</h3></div>
+      <p class="text-sm text-slate-600">${p.plain}</p>
+      <ul class="text-sm space-y-1">${specLines(p, big?4:2)}</ul>
+      <div class="mt-auto pt-2 flex items-end justify-between gap-2">
+        <div>${p.old?`<s class="text-xs text-slate-400">${money(p.old)}</s>`:''}<div class="font-extrabold text-falad ${big?'text-3xl':'text-xl'}">${money(p.price)}</div></div>
+        <span class="text-xs text-slate-500 text-right">${chLabel(p)}</span></div>
+    </div></article>`;
+}
+ 
+// Tarjeta compacta para el resto de productos.
+function miniCard(p){
+  return `<article class="bg-white rounded-xl border p-3 flex items-center gap-3">
+    <div class="text-3xl">${CATS[p.cat].icon}</div>
+    <div class="flex-1 min-w-0">
+      <h4 class="font-bold text-sm truncate">${p.name}</h4>
+      <p class="text-xs text-slate-500">${p.plain}</p>
+      <ul class="text-xs mt-1 flex flex-wrap gap-x-4 gap-y-1">${specLines(p,2)}</ul></div>
+    <div class="text-right"><div class="font-extrabold text-falad">${money(p.price)}</div><div class="text-xs text-slate-500">${chLabel(p)}</div></div></article>`;
+}
+ 
+/* ============ 5. COMPARADOR ============ */
+// Calcula quién gana cada premio y qué celdas se pintan en verde.
+function computeAwards(cat, list){
+  const byProduct = {}, bestCells = {};
+  cat.awards.forEach(a => {
+    const val = p => a.k==='price' ? p.price : p.s[a.k];
+    const vals = list.map(val);
+    const best = a.best==='min' ? Math.min(...vals) : Math.max(...vals);
+    bestCells[a.k] = best;
+    list.forEach(p => { if(val(p)===best) (byProduct[p.id] = byProduct[p.id] || []).push(a.label); });
+  });
+  return { byProduct, bestCells };
+}
+ 
+// Tabla con los 6 productos destacados (después del filtro).
+function compareTable(list){
+  const cat = CATS[list[0].cat], { byProduct, bestCells } = computeAwards(cat, list);
+  const cell = (isBest, txt) => `<td class="p-3 text-center border-t ${isBest?'bg-falal text-falad font-extrabold':''}">${txt}</td>`;
+  const head = list.map(p => `<th class="p-3 min-w-[140px] align-top font-bold">
+      <div class="text-3xl">${cat.icon}</div><div class="text-sm">${p.name}</div>
+      ${(byProduct[p.id]||[]).map(l=>`<div class="pill">${l}</div>`).join('<br>')}</th>`).join('');
+  const priceRow = `<tr><th class="sticky left-0 bg-white p-3 text-left text-sm border-t">Precio</th>${list.map(p=>cell(p.price===bestCells.price, money(p.price))).join('')}</tr>`;
+  const rows = cat.rows.map(r => `<tr><th class="sticky left-0 bg-white p-3 text-left text-sm border-t"><span class="inline-flex items-center gap-1.5">${r.label} ${tipBtn(r.tip)}</span></th>
+      ${list.map(p => cell(r.k in bestCells && p.s[r.k]===bestCells[r.k], specText(r,p))).join('')}</tr>`).join('');
+  const where = `<tr><th class="sticky left-0 bg-white p-3 text-left text-sm border-t">Dónde está</th>${list.map(p=>cell(false, chLabel(p))).join('')}</tr>`;
+  return `<div class="overflow-x-auto bg-white rounded-2xl border"><table class="w-full text-sm"><thead><tr><th class="sticky left-0 bg-white p-3"></th>${head}</tr></thead><tbody>${priceRow}${rows}${where}</tbody></table></div>`;
+}
+ 
+/* ============ 6. NAVEGACIÓN (cada sección tiene su propia dirección #ruta = su QR) ============ */
+let fromScan = false; // true cuando la persona llegó escaneando un QR
+const back = `<button onclick="go('entrada')" class="text-sm font-bold text-falad mt-4">← Volver al inicio</button>`;
+const bannerHTML = t => `<div class="mt-3 bg-falal border border-fala text-falad rounded-xl px-4 py-2 text-sm font-semibold">📍 Escaneaste el QR de ${t}. Ya te llevamos directo a esta sección.</div>`;
+ 
+// Cambia de pantalla poniendo la ruta en la dirección (así funciona el botón "atrás" y los QR).
+function go(h){ location.hash === '#'+h ? route() : (location.hash = h); }
+// Simula escanear un QR (el botón del simulador)
+function scanQR(id){ fromScan = true; go(id); }
+ 
+// Decide qué pantalla mostrar según la ruta. Ej: #entrada, #linea-blanca, #lavadoras, #qr
+function route(){
+  const h = location.hash.slice(1) || 'entrada', scanned = fromScan; fromScan = false;
+  $('home').classList.toggle('hidden', h!=='entrada'); $('results').classList.toggle('hidden', h==='entrada');
+  $('tip').classList.add('hidden');
+  const line = LINES.find(l => l.id===h);
+  if(h==='entrada') renderHome();
+  else if(h==='qr') renderQR();
+  else if(line) renderLine(line, scanned);
+  else if(CATS[h]) showCat(h, scanned);
+  else { go('entrada'); return; }
+  window.scrollTo({top:0});
+}
+window.addEventListener('hashchange', route);
+ 
+// INICIO: líneas (desplegables), Productos Estrella globales y mensaje de impacto.
+function renderHome(){
+  $('q').value = '';
+  $('homeLines').innerHTML = LINES.map(L => `<details class="bg-white rounded-2xl border p-4">
+    <summary class="cursor-pointer list-none flex items-center gap-3"><span class="text-3xl">${L.icon}</span>
+      <span class="flex-1"><b class="text-lg block">${L.name}</b><span class="text-sm text-slate-500">${L.desc}</span></span><span class="text-falad font-bold text-sm">Ver ▾</span></summary>
+    ${L.groups.map(g => `<p class="text-xs font-bold text-slate-500 mt-3 mb-1">${g.name}</p><div class="flex flex-wrap gap-2">${g.ids.map(i=>`<button class="chip" onclick="go('${i}')">${CATS[i].icon} ${CATS[i].name}</button>`).join('')}</div>`).join('')}
+    <button class="mt-4 text-sm font-bold text-falad" onclick="go('${L.id}')">Ver toda la línea</button></details>`).join('');
+  const stars = PRODUCTS.filter(p=>p.star).sort((a,b)=>b.pop-a.pop).slice(0,5);
+  $('homeStars').innerHTML = stars.map((p,i)=>starCard(p,i===0)).join('');
+  $('homeMsg').innerHTML = msgBox('impact', 0);
+}
+ 
+// LÍNEA: muestra sus grupos y categorías.
+function renderLine(L, scanned){
+  $('results').innerHTML = back + (scanned?bannerHTML(L.name):'') +
+    `<h2 class="text-3xl font-extrabold mt-4">${L.icon} ${L.name}</h2><p class="text-slate-500">${L.desc}</p>` + msgBox('choice', 0) +
+    L.groups.map(g => `<h3 class="font-extrabold mt-6 mb-2">${g.name}</h3><div class="grid gap-3 grid-cols-2 md:grid-cols-4">${g.ids.map(i => {
+      const has = PRODUCTS.some(p=>p.cat===i);
+      return `<button onclick="go('${i}')" class="bg-white border rounded-2xl p-4 text-left hover:border-fala"><div class="text-3xl">${CATS[i].icon}</div><div class="font-bold text-sm mt-1">${CATS[i].name}</div><div class="text-xs ${has?'text-falad':'text-slate-400'}">${has?'Disponible':'Muy pronto'}</div></button>`; }).join('')}</div>`).join('') +
+    msgBox('impact', 1);
+}
+ 
+// CATEGORÍA: prepara los datos (destacados + catálogo) y la pinta.
+function showCat(id, scanned){
+  const all = PRODUCTS.filter(p=>p.cat===id);
+  state = { cat:id, all:all.filter(p=>p.feat), extra:all.filter(p=>!p.feat), filter:0, banner: scanned ? bannerHTML(CATS[id].name) : '' };
+  renderResults();
+}
+function setFilter(i){ state.filter = i; renderResults(); }
+ 
+// Orden de la pantalla: estrellas → 3 normales → tabla comparativa → catálogo completo (tienda física primero).
+function renderResults(){
+  const cat = CATS[state.cat], L = LINES.find(l=>l.id===cat.line);
+  const head = back + state.banner + `<p class="text-xs text-slate-500 mt-3">${L.name}</p><h2 class="text-3xl font-extrabold">${cat.icon} ${cat.name}</h2>`;
+  if(!state.all.length && !state.extra.length){
+    $('results').innerHTML = head + `<div class="text-center py-12"><div class="text-6xl">🚧</div><h3 class="text-xl font-extrabold mt-3">Estamos cargando esta sección</h3>
+      <p class="text-slate-500 mt-1">Muy pronto verás aquí los productos con su información explicada fácil.</p>
+      <button class="chip mt-4" onclick="go('${L.id}')">Ver toda la línea ${L.name}</button></div>` + msgBox('choice', 0);
+    return;
+  }
+  const list = visible(), ex = visibleExtra();
+  const stars = list.filter(p=>p.star).slice(0,5), rest = list.filter(p=>!stars.includes(p));
+  const cols = stars.length>3 ? 'md:grid-cols-4' : 'md:grid-cols-3';
+  const exT = ex.filter(p=>p.ch!=='v'), exV = ex.filter(p=>p.ch==='v'); // primero tienda física
+  $('results').innerHTML = head +
+    `<div class="flex flex-wrap gap-2 mt-3">${cat.filters.map((f,i)=>`<button class="chip ${i===state.filter?'on':''}" onclick="setFilter(${i})">${f.label}</button>`).join('')}</div>` +
+    (!list.length && !ex.length ? `<p class="mt-8 text-slate-500">Ningún producto cumple ese filtro. Prueba con otro.</p>` : `
+    ${stars.length?`<h3 class="text-xl font-extrabold mt-6 mb-3">⭐ Productos Estrella</h3><div class="grid gap-4 ${cols}">${stars.map((p,i)=>starCard(p,i===0)).join('')}</div>`:''}
+    ${msgBox('choice', 1)}
+    ${rest.length?`<h3 class="text-lg font-bold mb-3">Otras opciones en tienda</h3><div class="grid gap-2 md:grid-cols-2">${rest.map(miniCard).join('')}</div>`:''}
+    ${list.length>1?`<h3 class="text-xl font-extrabold mt-8">Compáralos de un vistazo</h3><p class="text-sm text-slate-500 mb-3">Lo que está en verde es lo mejor de cada fila.</p>${compareTable(list)}`:''}
+    ${ex.length?`<h3 class="text-xl font-extrabold mt-10">Todo lo disponible en ${cat.name}</h3>
+      ${exT.length?`<p class="text-sm font-bold text-falad mt-3 mb-2">🏬 Para ver y llevar hoy en la tienda</p><div class="grid gap-2 md:grid-cols-2">${exT.map(miniCard).join('')}</div>`:''}
+      ${exV.length?`<p class="text-sm font-bold text-falad mt-5 mb-2">💻 Disponibles en falabella.com.co</p><div class="grid gap-2 md:grid-cols-2">${exV.map(miniCard).join('')}</div>`:''}`:''}
+    ${msgBox('choice', 2)}${msgBox('impact', 0)}`);
+}
+ 
+// BUSCADOR: reconoce líneas, categorías (por palabra clave) o productos por nombre/marca.
+function search(text){
+  const n = norm(text);
+  if(!n){ go('entrada'); return; }
+  const line = n.length>2 && LINES.find(l => norm(l.name).includes(n));
+  if(line){ go(line.id); return; }
+  const id = Object.keys(CATS).find(i => CATS[i].keys.some(k => n.includes(k) || (n.length>2 && k.includes(n))) || (n.length>2 && norm(CATS[i].name).includes(n)));
+  if(id){ go(id); return; }
+  const f = PRODUCTS.find(p => norm(p.name+' '+p.brand).includes(n));
+  if(f){ go(f.cat); return; }
+  // Sin resultados: mensaje claro con salida
+  $('home').classList.add('hidden'); $('results').classList.remove('hidden');
+  $('results').innerHTML = back + `<div class="text-center py-16"><div class="text-6xl">🔎</div>
+    <h2 class="text-2xl font-extrabold mt-3">No encontramos “${text.replace(/</g,'&lt;')}”</h2><p class="text-slate-500 mt-1">Prueba explorando por línea:</p>
+    <div class="mt-4 flex flex-wrap justify-center gap-2">${LINES.map(l=>`<button class="chip" onclick="go('${l.id}')">${l.icon} ${l.name}</button>`).join('')}</div></div>`;
+}
+ 
+/* ============ 7. CÓDIGOS QR REALES ============ */
+// Cada QR apunta a  <dirección pública de la página>#<ruta>. Se generan aquí y se descargan en PNG.
+function qrItems(){
+  const items = [{ title:'Entrada de la tienda', list:[{ id:'entrada', name:'Entrada (buscador + Productos Estrella)' }] },
+                 { title:'Líneas', list: LINES.map(l=>({ id:l.id, name:l.icon+' '+l.name })) }];
+  LINES.forEach(l => items.push({ title:l.name+': categorías', list: l.groups.flatMap(g=>g.ids).map(i=>({ id:i, name:CATS[i].icon+' '+CATS[i].name })) }));
+  return items;
+}
+function renderQR(){
+  const base = location.href.split('#')[0], local = location.protocol==='file:';
+  $('results').innerHTML = `<div class="noprint">${back}</div><h2 class="text-3xl font-extrabold mt-4">Códigos QR por sección</h2>
+    <p class="text-slate-600 text-sm mt-1">Escanéalos con el celular: cada uno abre directo su sección. Imprímelos o descarga cada uno en PNG.</p>
+    ${local?`<div class="mt-3 bg-amber-50 border border-amber-300 rounded-xl p-3 text-sm noprint">⚠️ Ahora la página está en tu computador, así que los QR no abrirían nada en otros celulares. Publica el archivo (por ejemplo en GitHub Pages o Netlify) y pega abajo la dirección pública.</div>`:''}
+    <div class="mt-3 flex flex-wrap gap-2 noprint"><input id="qrBase" value="${base}" class="flex-1 min-w-[240px] border rounded-full px-4 py-2 text-sm" placeholder="https://tu-pagina-publica.com/index.html">
+      <button class="bg-fala text-white font-bold px-5 rounded-full" onclick="drawQRs()">Actualizar QR</button>
+      <button class="chip" onclick="window.print()">🖨️ Imprimir</button></div>
+    <div id="qrList"></div>`;
+  drawQRs();
+}
+function drawQRs(){
+  if(typeof QRCode === 'undefined'){ $('qrList').innerHTML = '<p class="mt-6 text-red-600">No se cargó el generador de QR (revisa tu conexión a internet).</p>'; return; }
+  const base = $('qrBase').value.trim().split('#')[0];
+  $('qrList').innerHTML = qrItems().map(s => `<h3 class="font-extrabold mt-8 mb-3">${s.title}</h3><div class="grid gap-3 grid-cols-2 md:grid-cols-4">${s.list.map(i => `
+    <div class="bg-white border rounded-2xl p-3 text-center break-inside-avoid"><div id="qr-${i.id}" class="flex justify-center"></div>
+      <p class="font-bold text-sm mt-2">${i.name}</p><p class="text-[10px] text-slate-400 break-all">#${i.id}</p>
+      <button class="text-xs font-bold text-falad mt-1 noprint" onclick="dlQR('${i.id}')">Descargar PNG</button></div>`).join('')}</div>`).join('');
+  qrItems().forEach(s => s.list.forEach(i => new QRCode($('qr-'+i.id), { text: base+'#'+i.id, width:150, height:150, correctLevel: QRCode.CorrectLevel.M })));
+}
+function dlQR(id){
+  const c = document.querySelector('#qr-'+id+' canvas'), a = document.createElement('a');
+  a.href = c.toDataURL('image/png'); a.download = 'qr-'+id+'.png'; a.click();
+}
+ 
+/* ============ 8. TOOLTIPS (i) ============ */
+// Un solo listener para todos los botones (i), incluso los que se crean después.
+document.addEventListener('click', e => {
+  const b = e.target.closest('.tipbtn');
+  if(b){ const t = TIPS[b.dataset.tip]; $('tipT').textContent = t.t; $('tipD').textContent = t.d; $('tip').classList.remove('hidden'); return; }
+  if(!e.target.closest('#tip')) $('tip').classList.add('hidden'); // tocar fuera lo cierra
+});
+ 
+/* ============ 9. CHATBOT HÍBRIDO ============ */
+// Con internet y clave: responde la IA (más precisa). Sin internet: base local (limitada).
+const hasAI = () => navigator.onLine && !!CONFIG.API_KEY;
+function refreshMode(){
+  $('mode').textContent = hasAI() ? '🟢 IA en línea' : navigator.onLine ? '🟡 Base local · toca para activar IA' : '🟠 Sin conexión · base local';
+}
+function setKey(){ const k = prompt('Pega tu API key para activar la IA en línea (solo demo):'); if(k){ CONFIG.API_KEY = k.trim(); refreshMode(); } }
+window.addEventListener('online', refreshMode); window.addEventListener('offline', refreshMode);
+ 
+function toggleChat(){
+  const hidden = $('chat').classList.toggle('hidden'); // true = quedó oculto
+  $('chat').classList.toggle('flex', !hidden); $('chatBtn').classList.toggle('hidden', !hidden);
+  if(!hidden && !$('msgs').children.length) initChat();
+}
+function initChat(){
+  $('faceH').src = FACE; refreshMode();
+  addMsg('¡Hola! Soy tu asistente. Recuerda que tú decides: yo solo te ayudo a elegir con calma.', 'bot');
+  const s = ['¿Cabe en un apartamento pequeño?','¿Cuál es la más barata?','¿Qué es Inverter?','¿Cuál me conviene si somos familia?'];
+  $('sugg').innerHTML = s.map(t=>`<button class="chip !text-xs" onclick="sendChat(this.textContent)">${t}</button>`).join('');
+}
+// Agrega un mensaje (los del bot llevan la carita del personaje). Devuelve la burbuja.
+function addMsg(text, who){
+  const row = document.createElement('div'); row.className = 'flex gap-2 items-end ' + (who==='me' ? 'justify-end' : '');
+  if(who!=='me') row.innerHTML = `<img src="${FACE}" alt="" class="w-7 h-7 rounded-full object-cover bg-falal flex-none">`;
+  const b = document.createElement('div');
+  b.className = who==='me' ? 'max-w-[85%] bg-fala text-white rounded-2xl rounded-br-sm px-3 py-2' : 'max-w-[85%] bg-slate-100 rounded-2xl rounded-bl-sm px-3 py-2';
+  b.textContent = text; row.appendChild(b); $('msgs').appendChild(row); $('msgs').scrollTop = 1e9; return b;
+}
+ 
+// Envía la pregunta: intenta IA en línea y, si falla o no hay conexión, usa la base local.
+async function sendChat(text){
+  const q = (text || $('chatIn').value).trim(); if(!q) return;
+  $('chatIn').value = ''; addMsg(q,'me');
+  const wait = addMsg('Pensando…','bot');
+  let answer = null;
+  if(hasAI()){ try{ answer = await askAI(q); }catch(e){ answer = null; } }
+  if(!answer) answer = offlineAnswer(q);
+  if(!answer) answer = navigator.onLine
+    ? 'No tengo esa respuesta en mi base. Activa la IA en línea (toca el estado arriba) o pregunta a un asesor en el pasillo.'
+    : 'Sin internet no tengo esa respuesta en mi base local. Pregunta a un asesor en el pasillo o intenta de nuevo con conexión.';
+  wait.textContent = answer;
+}
+ 
+// IA en línea: se le envían los productos que el cliente está viendo como contexto.
+async function askAI(q){
+  const src = state.cat ? [...state.all, ...state.extra] : PRODUCTS.filter(p=>p.feat);
+  const ctx = src.map(p => ({ nombre:p.name, precio:p.price, categoria:p.cat, disponibilidad:chLabel(p), ...p.s }));
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{ 'content-type':'application/json', 'x-api-key':CONFIG.API_KEY, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
+    body: JSON.stringify({ model:CONFIG.MODEL, max_tokens:400,
+      system:'Eres la asistente de una tienda Falabella. Responde en español colombiano, en máximo 3 frases, con lenguaje sencillo y sin tecnicismos, y recuerda que la decisión final es del cliente. Si no sabes algo (medidas exactas, garantías, stock), dilo y sugiere preguntar a un asesor. Productos que ve el cliente: '+JSON.stringify(ctx),
+      messages:[{ role:'user', content:q }] }) });
+  if(!r.ok) throw new Error(r.status);
+  const d = await r.json();
+  return d.content.filter(b=>b.type==='text').map(b=>b.text).join('\n');
+}
+ 
+// Base local sin internet: reglas por palabras clave. Devuelve null si no sabe responder.
+function offlineAnswer(q){
+  const n = norm(q), c = state.cat, L = c ? visible() : [];
+  const has = (...w) => w.some(x => n.includes(x));
+  const by = (fn, dir=1) => [...L].sort((a,b)=>dir*(fn(a)-fn(b)))[0];
+  // 1) Glosario: "¿qué es Inverter?"
+  if(has('que es','significa','explica','quiere decir')){
+    const t = Object.values(TIPS).find(t => t.alias.some(a => n.includes(a)));
+    if(t) return t.t+': '+t.d;
+  }
+  if(!c || !L.length) return 'Elige una categoría con productos (por ahora Lavadoras o Audífonos) y te ayudo a compararlos.';
+  // 2) Reglas por categoría
+  if(c==='lavadoras'){
+    if(has('apartamento','pequeno','espacio','cabe','compact')){ const p = by(p=>p.s.kg); return `Para poco espacio, la ${p.name} es la más compacta de la lista (${p.s.kg} kg). Confirma las medidas exactas en la etiqueta o con un asesor.`; }
+    if(has('familia','grande','muchos','hijos')){ const p = by(p=>p.s.kg,-1); return `Para familia grande te sirve la ${p.name}: le caben ${p.s.kg} kg de ropa por lavada.`; }
+    if(has('solo','sola','pareja','una persona','dos personas')){ const p = by(p=>p.s.kg); return `Para 1–2 personas basta la ${p.name} (${p.s.kg} kg): es la más compacta.`; }
+    if(has('potente','fuerza','seca','rapido')){ const p = by(p=>p.s.rpm,-1); return `La que más exprime es la ${p.name} (${p.s.rpm} RPM): la ropa sale más seca.`; }
+    if(has('ruido','silenci','luz','energia','ahorr')){ const w = L.filter(p=>p.s.inverter).map(p=>p.name); return w.length ? 'Las más silenciosas y ahorradoras tienen motor Inverter: '+w.join(', ')+'.' : 'Ninguna de las que ves tiene motor Inverter.'; }
+  }
+  if(c==='audifonos'){
+    if(has('bateria','dura','autonomia')){ const p = by(p=>p.s.bat,-1); return `La batería más larga es la de ${p.name}: ${p.s.bat} horas.`; }
+    if(has('ruido','silenci','oficina','bus','estudiar')){ const p = by(p=>p.s.anc,-1); return `Para aislarte del ruido, la mejor opción es ${p.name}.`; }
+    if(has('ejercicio','gimnasio','entrenar','sudor','correr')){ const p = by(p=>p.s.ipx,-1); return `Para ejercicio busca resistencia al agua: ${p.name} es la que más protege (IPX${p.s.ipx}).`; }
+  }
+  if(has('barat','econom','precio','presupuesto','menos')){ const p = by(p=>p.price); return `La más económica de la lista es ${p.name}, a ${money(p.price)}.`; }
+  return null;
+}
+ 
+/* ============ 10. ARRANQUE ============ */
+fromScan = !!location.hash; // si abrieron la página desde un QR (con #ruta), se muestra el aviso
+route();
+</script>
+</body>
+</html>
+ 
